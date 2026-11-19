@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spoiler-safe search: Mistborn</title>
+<meta name="color-scheme" content="light dark">
+<style>
+:root{--bg:#f4f4f3;--card:#fff;--ink:#202124;--mute:#666b70;--line:#d9dbdc;--acc:#3b5a73;--acc-ink:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17181a;--card:#202225;--ink:#e6e7e8;--mute:#a0a5aa;--line:#34373b;--acc:#8fb4d1;--acc-ink:#101418}}
+:root[data-theme="dark"]{--bg:#17181a;--card:#202225;--ink:#e6e7e8;--mute:#a0a5aa;--line:#34373b;--acc:#8fb4d1;--acc-ink:#101418}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.25rem;margin:0 0 12px;font-weight:600}
+input[type=search],input[type=text]{width:100%;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
+.panel{margin:16px 0 8px;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.panel label,.panel .lab{font-weight:600;font-size:.95rem;display:block}
+.row{display:flex;gap:8px;margin:8px 0 12px}
+.row input{flex:1;min-width:0}
+button{padding:8px 14px;border:0;border-radius:6px;background:var(--acc);color:var(--acc-ink);font:inherit;cursor:pointer}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;min-height:6px}
+.tag{padding:2px 4px 2px 10px;border:1px solid var(--line);border-radius:14px;font-size:.9rem}
+.tag button{background:none;color:var(--mute);padding:0 6px}
+input[type=range]{width:100%;accent-color:var(--acc);margin:8px 0 2px}
+.ticks{display:flex;justify-content:space-between;font-size:.8rem;color:var(--mute)}
+.ticks span{flex:1;text-align:center}.ticks span:first-child{text-align:left}.ticks span:last-child{text-align:right}
+.hint{color:var(--mute);font-size:.85rem;margin:10px 0 0}
+.count{color:var(--mute);font-size:.9rem;margin:14px 0 4px}
+.res{display:flex;gap:14px;padding:14px 6px;border-top:1px solid var(--line);position:relative}
+.res .t{flex:1;min-width:0}
+.dom{font-size:.85rem;color:var(--mute)}
+.title{font-size:1.1rem;color:var(--acc);margin:2px 0 4px;font-weight:600}
+.snip{margin:0}
+.thumb{width:120px;height:80px;flex:none;border-radius:6px;position:relative;overflow:hidden}
+.thumb svg{position:absolute;inset:0;width:100%;height:100%}
+.play{position:absolute;inset:0;margin:auto;width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.6)}
+.play:after{content:"";position:absolute;left:12px;top:8px;border-left:10px solid #fff;border-top:7px solid transparent;border-bottom:7px solid transparent}
+[data-k]{cursor:pointer}
+.r,.blk{background:#000;color:transparent;border-radius:3px;box-shadow:0 0 0 1px var(--mute);user-select:none}
+.blk{display:block}
+.r.on,.blk.on{background:none;color:inherit;box-shadow:0 0 0 1px dashed var(--mute);outline:1px dashed var(--mute);user-select:auto}
+.title.blk{color:transparent}.title.blk.on{color:var(--acc)}
+.cov{background:#000;border-radius:6px;box-shadow:0 0 0 1px var(--mute);min-height:72px}
+.cov>*{visibility:hidden}
+.cov:after{content:"Hidden result. Click to reveal.";position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#aaa;font-size:.9rem}
+.cov.on{background:none;box-shadow:none;outline:1px dashed var(--mute);outline-offset:-1px}
+.cov.on>*{visibility:visible}.cov.on:after{content:none}
+.empty{padding:24px 0;color:var(--mute)}
+@media (max-width:520px){.thumb{width:84px;height:64px}}
+</style>
+</head>
+<body>
+<main>
+<h1>Search</h1>
+<input type="search" id="q" value="Mistborn" aria-label="Search">
+
+<section class="panel" aria-label="Spoiler filter">
+  <label for="kw">Spoiler keywords</label>
+  <div class="row"><input type="text" id="kw" placeholder="Add a keyword, such as Vin"><button id="add">Add</button></div>
+  <div class="tags" id="tags"></div>
+  <label for="sev">Spoiler severity</label>
+  <input type="range" id="sev" min="1" max="3" step="1" value="1">
+  <div class="ticks"><span>Keywords</span><span>Text elements</span><span>Whole result</span></div>
+  <p class="hint" id="hint"></p>
+</section>
+
+<div class="count" id="count"></div>
+<div id="results"></div>
+</main>
+
+<script>
+// [title, site, description, thumbnail: i = image, v = video, "" = none]
+const D=[
+["Mistborn: The Final Empire, spoiler-free overview","coppermind.example","A thief, a crew of Allomancers and a plan to topple an immortal emperor in a world where ash falls from the sky.","i"],
+["How Allomancy works: the metals and what they do","magicguide.example","Burn steel to push on metal, iron to pull, tin to sharpen your senses. A beginner’s chart of the basic metals.","i"],
+["Mistborn reading order: Era 1 and Era 2","bookclub.example","Read the original trilogy first, then The Alloy of Law and the Wax and Wayne books. No spoilers.",""],
+["Kelsier’s final plan and what it costs him","litbreakdown.example","Kelsier dies at the hands of the Steel Inquisitors, and his sacrifice turns him into a martyr for the skaa.","v"],
+["Vin’s first day as a Mistborn","fanfiction.example","Follow Vin from a street urchin in Luthadel to a trained Allomancer with a talent for Duralumin.","i"],
+["The Lord Ruler’s secret: who he really was","theorycraft.example","Rashek, a former servant, took the power at the Well of Ascension and became the Lord Ruler.","i"],
+["Brandon Sanderson’s writing lectures","sandersonclass.example","Free lectures on plot, magic systems and worldbuilding from the author of the Cosmere.","v"],
+["Elend Venture: the scholar king","coppermind.example","Elend leads Luthadel through siege and war, and in the end dies in battle with his wife at his side.","i"],
+["Mistborn audiobook narration compared","audiofiles.example","Michael Kramer’s narration is reviewed for pacing, voices and the handling of action scenes.","v"],
+["Sazed the Keeper: faith, memory and Hemalurgy","litbreakdown.example","Sazed loses his faith but becomes Harmony, merging with the shards of Preservation and Ruin.","i"],
+["Cosplaying Mistborn: a mistcloak tutorial","makerlab.example","Cut and fringe a mistcloak, add vials and a coin pouch, and build Vin’s costume on a budget.","v"],
+["Mistborn Adventure Game review","gamenight.example","A tabletop role-playing game set in Luthadel, with rules for Allomancy and crew heists.","i"],
+["Zane and Vin: the half-sibling twist","theorycraft.example","Zane is revealed to be the Mistborn son of Straff and Vin’s half-brother, and Vin kills him at the end of the second book.","i"],
+["Mistborn Era 2 for new readers","bookclub.example","Wax and Wayne bring guns, trains and a lot of humor to the Scadrian frontier. Spoiler-free.",""],
+["Ruin and Preservation: the two shards","theorycraft.example","Ruin wants to unmake the world, Preservation wants to save it, and Vin must decide which side she serves.","i"],
+["Best Mistborn fan art of the year","artgallery.example","A gallery of Vin, Kelsier and Elend paintings, plus a few good cover redesigns.","i"],
+["The Well of Ascension, spoiler-free review","bookreview.example","A slower, political second novel that sets up the biggest questions of the series.",""],
+["Marsh and the Inquisitors: what the spikes do","coppermind.example","Marsh is taken by the Steel Inquisitors, and the Lord Ruler’s own Hemalurgic spikes grant strange powers.","v"],
+["The Hero of Ages: ending explained","litbreakdown.example","Vin and Elend die and Sazed takes up the power of Preservation, rebuilding the world as Harmony.","i"],
+["How the Mistborn magic system compares with other fantasy","fantasycritics.example","Why Sanderson’s rule-based Allomancy is so satisfying compared with other fantasy magic.",""],
+["Kelsier’s crew: where does each member end up?","litbreakdown.example","Breeze, Ham, Dockson and the rest of the crew are covered, including who survives the siege.","i"],
+["Mistborn film and TV adaptation news","filmnews.example","What we know so far about adapting the trilogy, with casting rumors and studio statements.",""],
+["The Final Empire map and the Ashmounts","worldbuilding.example","A tour of the Final Empire, including Luthadel, the Pits of Hathsin and the ashfall regions.","i"],
+["The Pits of Hathsin and the Well","coppermind.example","Kelsier’s torture in the Pits gave him access to Allomantic abilities, leading to his eventual rebirth as a legend.","v"],
+["Beginner’s guide to the Cosmere","cosmerefans.example","How Mistborn connects to Elantris, Warbreaker and the Stormlight Archive, without spoilers.",""],
+["Straff Venture’s siege of Luthadel","litbreakdown.example","Straff and the Koloss army besiege Luthadel, and Elend must choose between his city and his father.","i"],
+["Mistborn Era 1 cover art compared","artgallery.example","The US, UK and special edition covers side by side, with notes on each artist’s style.","i"],
+["Ten facts about Brandon Sanderson","authorbio.example","From his start as a night-shift hotel clerk to the record-breaking Kickstarter.",""],
+["Does Mistborn hold up on a re-read?","bookclub.example","A re-reader’s notes on foreshadowing, including the line about the Lord Ruler’s hidden past.","v"],
+["Mistborn quotes from the first book","quotes.example","The most-quoted lines about hope, trust and what it means to be Mistborn.",""]
+];
+const $=id=>document.getElementById(id);
+const HINTS={1:"Blacks out only the keywords.",2:"Blacks out each title or description that contains a keyword.",3:"Blacks out any whole result that contains a keyword, including its thumbnail."};
+let kws=["Kelsier","Lord Ruler"],sev=1,R=new Set();
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const rxs=()=>kws.length?kws.map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|"):null;
+function thumb(i,t){
+  const h=(i*47+200)%360;
+  return `<div class="thumb"><svg viewBox="0 0 120 80" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="g${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="hsl(${h} 12% 46%)"/><stop offset="1" stop-color="hsl(${h} 10% 18%)"/></linearGradient></defs><rect width="120" height="80" fill="url(#g${i})"/><circle cx="${30+(i*13)%60}" cy="26" r="9" fill="rgba(255,255,255,.35)"/><path d="M0 64 L26 40 L50 58 L80 34 L120 62 V80 H0Z" fill="rgba(0,0,0,.35)"/></svg>${t==="v"?'<span class="play"></span>':""}</div>`;
+}
+function render(){
+  const src=rxs(),hit=src?new RegExp(src,"i"):null,terms=$("q").value.toLowerCase().split(/\s+/).filter(Boolean);
+  const out=[];
+  D.forEach(([title,site,desc,t],i)=>{
+    const hay=(title+" "+site+" "+desc+" mistborn").toLowerCase();
+    if(!terms.every(w=>hay.includes(w)))return;
+    const spoil=hit&&hit.test(title+" "+desc);
+    const part=(txt,p)=>{
+      if(!hit||!hit.test(txt))return esc(txt);
+      const k=i+":"+p,on=R.has(k)?" on":"";
+      if(sev===1){let n=0;return esc(txt).split(new RegExp("("+esc(src)+")","i")).map((s,j)=>{if(j%2===0)return s;const kk=k+":"+(n++);return `<span class="r${R.has(kk)?" on":""}" data-k="${kk}" tabindex="0" role="button">${s}</span>`}).join("")}
+      if(sev===2)return `<span class="blk${on}" data-k="${k}" tabindex="0" role="button">${esc(txt)}</span>`;
+      return esc(txt);
+    };
+    const ak=i+":all",cov=spoil&&sev===3;
+    out.push(`<article class="res${cov?" cov"+(R.has(ak)?" on":""):""}"${cov?` data-k="${ak}" tabindex="0" role="button"`:""}><div class="t"><div class="dom">${esc(site)}</div><div class="title">${part(title,"t")}</div><p class="snip">${part(desc,"d")}</p></div>${t?thumb(i,t):""}</article>`);
+  });
+  $("results").innerHTML=out.length?out.join(""):`<div class="empty">No results for “${esc($("q").value)}”.</div>`;
+  $("count").textContent=out.length+" results";
+  $("tags").innerHTML=kws.map((k,j)=>`<span class="tag">${esc(k)}<button data-i="${j}" aria-label="Delete ${esc(k)}">×</button></span>`).join("");
+  $("hint").textContent=HINTS[sev];
+}
+function reset(){R.clear();render()}
+function add(){const v=$("kw").value.trim();if(v&&!kws.some(k=>k.toLowerCase()===v.toLowerCase()))kws.push(v);$("kw").value="";reset()}
+$("add").onclick=add;
+$("kw").onkeydown=e=>{if(e.key==="Enter")add()};
+$("q").oninput=()=>{R.clear();render()};
+$("sev").oninput=e=>{sev=+e.target.value;reset()};
+$("tags").onclick=e=>{const b=e.target.closest("button");if(b){kws.splice(+b.dataset.i,1);reset()}};
+function tog(e){const el=e.target.closest("[data-k]");if(!el)return;const k=el.dataset.k;R.has(k)?R.delete(k):R.add(k);render()}
+$("results").onclick=tog;
+$("results").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();tog(e)}};
+render();
+</script>
+</body>
+</html>
